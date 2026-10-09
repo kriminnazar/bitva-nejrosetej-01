@@ -1,0 +1,1679 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>КАЛИБР — аим-тренер</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden; background: #100e0c;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif; color: #f4efe8;
+    user-select: none; -webkit-user-select: none;
+  }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; background: #100e0c; }
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 2;
+    background: radial-gradient(ellipse at center, transparent 48%, rgba(0,0,0,0.5) 100%);
+    transition: box-shadow 0.3s;
+  }
+  body.danger #vignette { box-shadow: inset 0 0 140px rgba(170, 24, 10, 0.32); }
+  #flash {
+    position: fixed; width: 260px; height: 260px; margin: -130px 0 0 -130px;
+    pointer-events: none; z-index: 4; opacity: 0;
+    background: radial-gradient(circle, rgba(255,236,190,0.95) 0%, rgba(255,150,40,0.4) 30%, rgba(255,80,0,0) 68%);
+    mix-blend-mode: screen;
+  }
+  #crosshair {
+    position: fixed; left: 50%; top: 50%; width: 0; height: 0; z-index: 5;
+    pointer-events: none; display: none;
+  }
+  body.live #crosshair { display: block; }
+  #crosshair .ch {
+    position: absolute; background: #c6ff73;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.8);
+  }
+  #crosshair .ch.v { width: 2px; height: 10px; left: -1px; }
+  #crosshair .ch.h { height: 2px; width: 10px; top: -1px; }
+  #crosshair .ch.t { top: -15px; }
+  #crosshair .ch.b { top: 5px; }
+  #crosshair .ch.l { left: -15px; }
+  #crosshair .ch.r { left: 5px; }
+  #crosshair.miss .ch { background: #ff5c45; }
+  body.hot #crosshair .ch { background: #ffd15a; }
+  #hitmark { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; }
+  #hitmark.show { opacity: 1; animation: hm 0.09s ease-out; }
+  @keyframes hm { from { transform: scale(1.55); } to { transform: scale(1); } }
+  #hitmark i {
+    position: absolute; width: 2px; height: 8px; background: #ff3b30;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.55);
+  }
+  #hitmark i:nth-child(1) { left: -8px; top: -12px; transform: rotate(45deg); }
+  #hitmark i:nth-child(2) { left: 6px; top: -12px; transform: rotate(-45deg); }
+  #hitmark i:nth-child(3) { left: -8px; top: 4px; transform: rotate(-45deg); }
+  #hitmark i:nth-child(4) { left: 6px; top: 4px; transform: rotate(45deg); }
+  #hitmark.gold i { background: #ffd15a; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 6; pointer-events: none; display: none; }
+  body.live #hud { display: block; }
+  .statbar {
+    display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 22px;
+    padding: 12px 16px 18px;
+    background: linear-gradient(180deg, rgba(8,7,6,0.78), rgba(8,7,6,0));
+  }
+  .stat { text-align: center; min-width: 68px; }
+  .stat b {
+    display: block; font-size: clamp(16px, 2.5vw, 26px); font-weight: 800;
+    font-variant-numeric: tabular-nums; color: #fff; letter-spacing: 0.02em;
+    font-family: Consolas, "Courier New", monospace;
+  }
+  .stat span {
+    display: block; margin-top: 2px; font-size: 10px; letter-spacing: 0.16em;
+    color: rgba(255,236,214,0.5);
+  }
+  .stat.time b { font-size: clamp(22px, 3.2vw, 34px); color: #f0c27a; }
+  .stat.time.low b { color: #ff5146; }
+  #combo, #praise {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    font-weight: 800; letter-spacing: 0.16em; pointer-events: none; z-index: 6;
+    text-shadow: 0 2px 10px #000; opacity: 0; transition: opacity 0.15s;
+  }
+  #combo { top: 76px; font-size: 22px; color: #ffb45a; }
+  #praise { top: 108px; font-size: 15px; color: #fff6e4; }
+  #countdown {
+    position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%);
+    font-size: clamp(72px, 16vw, 132px); font-weight: 900; color: #fff;
+    letter-spacing: 0.08em; text-shadow: 0 8px 30px rgba(0,0,0,0.65);
+    z-index: 7; pointer-events: none; display: none;
+  }
+  body.counting #countdown { display: block; }
+  #countdown.go { color: #f0c27a; font-size: clamp(48px, 10vw, 84px); letter-spacing: 0.22em; }
+  #tutor {
+    position: fixed; bottom: 86px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,244,230,0.78); font-size: 13px; letter-spacing: 0.04em;
+    z-index: 6; pointer-events: none; display: none; text-shadow: 0 1px 4px #000;
+    transition: opacity 0.4s; white-space: nowrap;
+  }
+  body.live #tutor { display: block; }
+  body.hidehelp #tutor { opacity: 0; }
+  #brand {
+    position: fixed; left: 22px; bottom: 16px; z-index: 6; pointer-events: none;
+    display: none; font-weight: 800; letter-spacing: 0.16em; font-size: 15px;
+    color: rgba(255,244,230,0.84);
+  }
+  #brand div { font-size: 11px; letter-spacing: 0.08em; font-weight: 500; color: rgba(255,244,230,0.42); margin-top: 3px; }
+  body.live #brand { display: block; }
+  #lockhint {
+    display: none; position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    z-index: 8; font-size: 13px; color: rgba(255,244,230,0.88);
+    background: rgba(12,10,8,0.72); border: 1px solid rgba(231,161,90,0.35);
+    padding: 8px 14px; max-width: 92vw; text-align: center;
+  }
+  body.live.unlocked #lockhint { display: block; }
+  #fx { position: fixed; inset: 0; pointer-events: none; z-index: 6; overflow: hidden; }
+  .floater {
+    position: absolute; font-weight: 800; font-size: 18px;
+    text-shadow: 0 2px 8px #000; transform: translate(-50%, -100%); white-space: nowrap;
+  }
+  .screen {
+    position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+    overflow: auto; padding: 24px 12px;
+    background: radial-gradient(ellipse at center, rgba(8,7,6,0.28) 0%, rgba(8,7,6,0.72) 72%);
+  }
+  .screen.hidden { display: none; }
+  .card {
+    width: min(560px, 94vw); max-height: 94vh; overflow: auto;
+    padding: 36px 36px 30px; text-align: center; position: relative;
+    background: linear-gradient(180deg, rgba(22,18,14,0.92), rgba(12,10,8,0.94));
+    border: 1px solid rgba(231,161,90,0.28);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .card:before {
+    content: ""; position: absolute; left: 50%; top: 0; width: 240px; height: 180px;
+    transform: translate(-50%, -30%); pointer-events: none;
+    background: radial-gradient(circle, rgba(255,150,40,0.2), transparent 70%);
+  }
+  .logo-mark {
+    width: 42px; height: 42px; margin: 0 auto 10px; border: 2px solid #e7a15a;
+    border-radius: 50%; position: relative;
+  }
+  .logo-mark:before, .logo-mark:after { content: ""; position: absolute; background: #e7a15a; }
+  .logo-mark:before { left: 50%; top: -6px; bottom: -6px; width: 2px; margin-left: -1px; }
+  .logo-mark:after { top: 50%; left: -6px; right: -6px; height: 2px; margin-top: -1px; }
+  .eyebrow { letter-spacing: 0.34em; font-size: 11px; color: #e7a15a; margin-bottom: 8px; font-weight: 700; }
+  h1 {
+    font-size: clamp(42px, 8vw, 68px); letter-spacing: 0.28em; font-weight: 900;
+    margin-left: 0.28em; color: #f3d2a2;
+    text-shadow: 0 2px 0 #3a2410, 0 0 28px rgba(255,150,40,0.28);
+  }
+  h2 { font-size: clamp(32px, 6vw, 48px); color: #f0c27a; letter-spacing: 0.12em; font-weight: 900; }
+  .sub { margin-top: 8px; color: rgba(244,239,232,0.7); letter-spacing: 0.06em; }
+  .flavor { margin-top: 8px; color: rgba(244,239,232,0.72); }
+  .tips { list-style: none; text-align: left; margin: 22px auto 0; max-width: 420px; }
+  .tips li { display: flex; align-items: center; gap: 10px; padding: 5px 0; color: rgba(244,239,232,0.86); font-size: 14px; }
+  .sw { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); }
+  .sw.r { background: #e23b32; } .sw.o { background: #f08a2a; } .sw.c { background: #3aa0d8; } .sw.g { background: #e6b33a; }
+  button.play {
+    margin-top: 22px; background: linear-gradient(180deg, #f0a85a, #c46e1c);
+    color: #1a1008; border: none; font-size: 16px; font-weight: 800;
+    letter-spacing: 0.2em; padding: 14px 46px; cursor: pointer; text-transform: uppercase;
+    font-family: inherit; box-shadow: 0 8px 24px rgba(200,100,20,0.35);
+  }
+  button.play:hover { filter: brightness(1.08); }
+  button.play:active { transform: translateY(1px); }
+  .hint { margin-top: 16px; font-size: 13px; line-height: 1.45; color: rgba(244,239,232,0.55); }
+  .rec { margin-top: 12px; font-size: 13px; letter-spacing: 0.08em; color: rgba(240,194,122,0.8); }
+  .rec.new { color: #ffd15a; font-weight: 800; }
+  .bigscore {
+    margin-top: 10px; font-size: clamp(48px, 9vw, 72px); font-weight: 900; color: #fff;
+    font-family: Consolas, "Courier New", monospace; font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 24px rgba(240,194,122,0.25);
+  }
+  .scorelabel { letter-spacing: 0.28em; font-size: 11px; color: rgba(244,239,232,0.45); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 8px; margin: 18px 0 8px; }
+  .grid b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; font-family: Consolas, "Courier New", monospace; }
+  .grid span { display: block; margin-top: 3px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+  .sparkwrap { margin-top: 8px; text-align: left; }
+  .sparkwrap > span { font-size: 10px; letter-spacing: 0.16em; color: rgba(255,255,255,0.4); }
+  #spark { display: flex; align-items: flex-end; gap: 3px; height: 52px; margin-top: 6px; }
+  #spark i { display: block; width: 6px; flex: 1; max-width: 10px; border-radius: 2px 2px 0 0; }
+  #spark em { color: rgba(255,255,255,0.4); font-style: normal; font-size: 12px; align-self: center; }
+  @media (max-width: 640px) {
+    .card { padding: 24px 16px; }
+    .tips { font-size: 13px; }
+    #tutor { font-size: 11px; }
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vignette"></div>
+<div id="flash"></div>
+<div id="crosshair">
+  <span class="ch v t" id="chT"></span>
+  <span class="ch v b" id="chB"></span>
+  <span class="ch h l" id="chL"></span>
+  <span class="ch h r" id="chR"></span>
+  <div id="hitmark"><i></i><i></i><i></i><i></i></div>
+</div>
+<div id="hud">
+  <div class="statbar">
+    <div class="stat time" id="timeWrap"><b id="tTime">60.0</b><span>ВРЕМЯ</span></div>
+    <div class="stat"><b id="tHits">0</b><span>ПОПАДАНИЯ</span></div>
+    <div class="stat"><b id="tMiss">0</b><span>ПРОМАХИ</span></div>
+    <div class="stat"><b id="tAcc">—</b><span>ТОЧНОСТЬ</span></div>
+    <div class="stat"><b id="tReact">—</b><span>РЕАКЦИЯ</span></div>
+    <div class="stat"><b id="tScore">0</b><span>СЧЁТ</span></div>
+  </div>
+</div>
+<div id="combo"></div>
+<div id="praise"></div>
+<div id="countdown"></div>
+<div id="tutor">ЛКМ — выстрел · бей в центр · держи комбо</div>
+<div id="brand">КАЛИБР-47<div>одиночный · ∞</div></div>
+<div id="lockhint">Нет захвата мыши — прицел следует за курсором. Кликните здесь, чтобы захватить.</div>
+<div id="fx"></div>
+<div id="menu" class="screen">
+  <div class="card">
+    <div class="logo-mark"></div>
+    <div class="eyebrow">ТАКТИЧЕСКИЙ ТИР</div>
+    <h1>КАЛИБР</h1>
+    <p class="sub">Аим-тренер · раунд 60 секунд</p>
+    <ul class="tips">
+      <li><i class="sw r"></i> Красные — обычные мишени</li>
+      <li><i class="sw o"></i> Оранжевые — мелкие, больше очков</li>
+      <li><i class="sw c"></i> Синие — движутся по горизонтали</li>
+      <li><i class="sw g"></i> Золотые — редкие, живут меньше секунды</li>
+      <li>Кольцо вокруг мишени — сколько ей осталось. Центр даёт бонус.</li>
+    </ul>
+    <button type="button" id="btnPlay" class="play">Играть</button>
+    <p class="hint">Мышь ведёт прицел, левая кнопка — выстрел. ESC отпускает курсор: без захвата прицел просто следует за мышкой, стрелять всё равно можно.</p>
+    <p class="rec" id="menuRec"></p>
+  </div>
+</div>
+<div id="results" class="screen hidden">
+  <div class="card">
+    <div class="eyebrow">РАУНД ОКОНЧЕН</div>
+    <h2 id="rRank">Стрелок</h2>
+    <p class="flavor" id="rFlavor"></p>
+    <div class="bigscore" id="rScore">0</div>
+    <div class="scorelabel">СЧЁТ</div>
+    <div class="grid">
+      <div><b id="rHits">0</b><span>Попадания</span></div>
+      <div><b id="rMiss">0</b><span>Промахи</span></div>
+      <div><b id="rAcc">—</b><span>Точность</span></div>
+      <div><b id="rReact">—</b><span>Средняя реакция</span></div>
+      <div><b id="rBest">—</b><span>Лучшая реакция</span></div>
+      <div><b id="rCombo">0</b><span>Макс. комбо</span></div>
+    </div>
+    <div class="sparkwrap">
+      <span>ПОСЛЕДНИЕ РЕАКЦИИ</span>
+      <div id="spark"></div>
+    </div>
+    <p class="rec" id="resRec"></p>
+    <button type="button" id="btnAgain" class="play">Ещё раз</button>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('c');
+  var gl = canvas.getContext('webgl', { antialias: true, alpha: false, depth: true, stencil: false });
+  if (!gl) gl = canvas.getContext('webgl');
+  if (!gl) gl = canvas.getContext('experimental-webgl');
+  if (!gl) {
+    document.getElementById('menu').innerHTML = '<div class="card"><h1>КАЛИБР</h1><p class="hint">WebGL недоступен в этом браузере.</p></div>';
+    return;
+  }
+
+  var el = {
+    flash: document.getElementById('flash'),
+    cross: document.getElementById('crosshair'),
+    chT: document.getElementById('chT'),
+    chB: document.getElementById('chB'),
+    chL: document.getElementById('chL'),
+    chR: document.getElementById('chR'),
+    hitmark: document.getElementById('hitmark'),
+    timeWrap: document.getElementById('timeWrap'),
+    tTime: document.getElementById('tTime'),
+    tHits: document.getElementById('tHits'),
+    tMiss: document.getElementById('tMiss'),
+    tAcc: document.getElementById('tAcc'),
+    tReact: document.getElementById('tReact'),
+    tScore: document.getElementById('tScore'),
+    combo: document.getElementById('combo'),
+    praise: document.getElementById('praise'),
+    count: document.getElementById('countdown'),
+    lock: document.getElementById('lockhint'),
+    fx: document.getElementById('fx'),
+    menu: document.getElementById('menu'),
+    results: document.getElementById('results'),
+    menuRec: document.getElementById('menuRec'),
+    rRank: document.getElementById('rRank'),
+    rFlavor: document.getElementById('rFlavor'),
+    rScore: document.getElementById('rScore'),
+    rHits: document.getElementById('rHits'),
+    rMiss: document.getElementById('rMiss'),
+    rAcc: document.getElementById('rAcc'),
+    rReact: document.getElementById('rReact'),
+    rBest: document.getElementById('rBest'),
+    rCombo: document.getElementById('rCombo'),
+    spark: document.getElementById('spark'),
+    resRec: document.getElementById('resRec'),
+    play: document.getElementById('btnPlay'),
+    again: document.getElementById('btnAgain')
+  };
+
+  var INNER_X = 7.2, INNER_Z0 = -16, INNER_Z1 = 6.6, INNER_H = 4.05;
+  var EYE = [0, 1.62, 4.55];
+  var SENS = 0.002;
+  var PRAISE = { 3: 'СЕРИЯ', 5: 'ХОРОШО', 8: 'ОТЛИЧНО', 12: 'НЕВЕРОЯТНО', 16: 'МОНСТР', 20: 'ЛЕГЕНДА' };
+
+  var CRATES = [
+    { x: -5.8, y: 0.42, z: -2.6, hx: 0.55, hy: 0.42, hz: 0.5, wood: true, col: [0.48, 0.32, 0.17] },
+    { x: 5.75, y: 0.5, z: -6.6, hx: 0.62, hy: 0.5, hz: 0.48, wood: true, col: [0.42, 0.28, 0.15] },
+    { x: -5.45, y: 0.32, z: -9.7, hx: 0.85, hy: 0.32, hz: 0.4, wood: true, col: [0.38, 0.26, 0.14] },
+    { x: 5.35, y: 0.85, z: -12.1, hx: 0.38, hy: 0.85, hz: 0.38, wood: false, col: [0.32, 0.34, 0.37] }
+  ];
+  var DECOR = [
+    { x: -2.1, y: 1.75, z: -8.2, r: 0.42, type: 'norm' },
+    { x: 1.7, y: 1.25, z: -11.2, r: 0.34, type: 'move' },
+    { x: 0.15, y: 2.15, z: -5.6, r: 0.26, type: 'small' },
+    { x: -3.3, y: 1.05, z: -13.2, r: 0.32, type: 'gold' }
+  ];
+
+  var cssW = 1, cssH = 1;
+  var audioCtx = null, noiseBuf = null;
+  var state = 'menu';
+  var yaw = 0, pitch = -0.04, recoilP = 0, recoilY = 0, shotKick = 0;
+  var timeLeft = 60, countLeft = 3, lastCountLabel = '', lastWarn = 99;
+  var hits = 0, misses = 0, score = 0, combo = 0, maxCombo = 0;
+  var reactSum = 0, bestReact = 1e9, reacts = [];
+  var targets = [], particles = [], tracers = [], decals = [], floaters = [];
+  var dust = [];
+  var spawnIn = 0, nextShotAt = 0, praiseTimer = 0, hitT = 0, missT = 0, flashA = 0;
+  var mouseX = window.innerWidth * 0.5, mouseY = window.innerHeight * 0.5;
+  var bestScore = 0;
+  var frameDt = 0, lastNow = 0;
+
+  try {
+    bestScore = parseInt(localStorage.getItem('kalibr-best') || '0', 10) || 0;
+  } catch (e) { bestScore = 0; }
+
+  for (var di = 0; di < 32; di++) {
+    dust.push({
+      x: Math.random() * 10 - 5,
+      y: 0.3 + Math.random() * 3.2,
+      z: -14 + Math.random() * 17,
+      s: 0.008 + Math.random() * 0.016,
+      ph: Math.random() * 6.28
+    });
+  }
+
+  function recLabel() {
+    return bestScore > 0 ? ('Рекорд: ' + bestScore) : 'Рекорда пока нет';
+  }
+  el.menuRec.textContent = recLabel();
+
+  function ensureAudio() {
+    if (audioCtx) {
+      if (audioCtx.state === 'suspended') {
+        try { audioCtx.resume(); } catch (e1) {}
+      }
+      return;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try {
+      audioCtx = new AC();
+      var sr = audioCtx.sampleRate || 44100;
+      var len = Math.floor(sr * 0.5);
+      noiseBuf = audioCtx.createBuffer(1, len, sr);
+      var data = noiseBuf.getChannelData(0);
+      for (var i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      var src = audioCtx.createBufferSource();
+      src.buffer = noiseBuf;
+      src.loop = true;
+      var f = audioCtx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 380;
+      var g = audioCtx.createGain();
+      g.gain.value = 0.012;
+      src.connect(f); f.connect(g); g.connect(audioCtx.destination);
+      src.start();
+    } catch (e2) {
+      audioCtx = null;
+    }
+  }
+
+  function beep(freq, dur, vol, type) {
+    if (!audioCtx) return;
+    try {
+      var t = audioCtx.currentTime;
+      var o = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(Math.max(0.001, vol), t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) {}
+  }
+
+  function playClick() { beep(720, 0.05, 0.06, 'square'); }
+
+  function playShot() {
+    if (!audioCtx || !noiseBuf) return;
+    try {
+      var t = audioCtx.currentTime;
+      var src = audioCtx.createBufferSource();
+      src.buffer = noiseBuf;
+      src.playbackRate.value = 0.85 + Math.random() * 0.2;
+      var bp = audioCtx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 980;
+      bp.Q.value = 0.65;
+      var g = audioCtx.createGain();
+      g.gain.setValueAtTime(0.42, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+      src.connect(bp); bp.connect(g); g.connect(audioCtx.destination);
+      src.start(t, Math.random() * 0.2, 0.12);
+      var o = audioCtx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(150 + Math.random() * 20, t);
+      o.frequency.exponentialRampToValueAtTime(42, t + 0.09);
+      var lp = audioCtx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 520;
+      var g2 = audioCtx.createGain();
+      g2.gain.setValueAtTime(0.18, t);
+      g2.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      o.connect(lp); lp.connect(g2); g2.connect(audioCtx.destination);
+      o.start(t); o.stop(t + 0.11);
+    } catch (e) {}
+  }
+
+  function playHit(center, gold) {
+    beep(gold ? 1040 : center ? 920 : 680, 0.07, 0.11, 'sine');
+    beep(gold ? 1560 : center ? 1380 : 510, 0.09, 0.05, 'triangle');
+  }
+
+  function playEnd() {
+    beep(520, 0.12, 0.08, 'triangle');
+    beep(392, 0.22, 0.07, 'sine');
+  }
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function norm3(x, y, z) {
+    var l = Math.sqrt(x * x + y * y + z * z);
+    if (l < 1e-8) return [0, 0, -1];
+    return [x / l, y / l, z / l];
+  }
+  function smooth(t) {
+    t = clamp(t, 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+  function setTxt(node, s) { if (node.textContent !== s) node.textContent = s; }
+
+  function mat4Multiply(a, b) {
+    var o = new Float32Array(16);
+    for (var c = 0; c < 4; c++) {
+      for (var r = 0; r < 4; r++) {
+        o[c * 4 + r] =
+          a[r] * b[c * 4] +
+          a[4 + r] * b[c * 4 + 1] +
+          a[8 + r] * b[c * 4 + 2] +
+          a[12 + r] * b[c * 4 + 3];
+      }
+    }
+    return o;
+  }
+  function mat4Perspective(fovy, aspect, near, far) {
+    var f = 1 / Math.tan(fovy / 2);
+    var nf = 1 / (near - far);
+    var o = new Float32Array(16);
+    o[0] = f / aspect;
+    o[5] = f;
+    o[10] = (far + near) * nf;
+    o[11] = -1;
+    o[14] = 2 * far * near * nf;
+    return o;
+  }
+  function mat4LookAt(eye, center, up) {
+    var zx = eye[0] - center[0], zy = eye[1] - center[1], zz = eye[2] - center[2];
+    var len = Math.sqrt(zx * zx + zy * zy + zz * zz) || 1;
+    zx /= len; zy /= len; zz /= len;
+    var xx = up[1] * zz - up[2] * zy;
+    var xy = up[2] * zx - up[0] * zz;
+    var xz = up[0] * zy - up[1] * zx;
+    len = Math.sqrt(xx * xx + xy * xy + xz * xz) || 1;
+    xx /= len; xy /= len; xz /= len;
+    var yx = zy * xz - zz * xy;
+    var yy = zz * xx - zx * xz;
+    var yz = zx * xy - zy * xx;
+    var o = new Float32Array(16);
+    o[0] = xx; o[1] = yx; o[2] = zx; o[3] = 0;
+    o[4] = xy; o[5] = yy; o[6] = zy; o[7] = 0;
+    o[8] = xz; o[9] = yz; o[10] = zz; o[11] = 0;
+    o[12] = -(xx * eye[0] + xy * eye[1] + xz * eye[2]);
+    o[13] = -(yx * eye[0] + yy * eye[1] + yz * eye[2]);
+    o[14] = -(zx * eye[0] + zy * eye[1] + zz * eye[2]);
+    o[15] = 1;
+    return o;
+  }
+  function basis(ya, pi) {
+    var cp = Math.cos(pi), sp = Math.sin(pi);
+    var cy = Math.cos(ya), sy = Math.sin(ya);
+    return {
+      f: [sy * cp, sp, -cy * cp],
+      r: [cy, 0, sy],
+      u: [-sy * sp, cp, cy * sp]
+    };
+  }
+
+  var VS = [
+    'precision mediump float;',
+    'attribute vec3 aPos;',
+    'attribute vec3 aNormal;',
+    'attribute vec3 aColor;',
+    'attribute float aEmit;',
+    'uniform mat4 uVP;',
+    'uniform vec3 uCam;',
+    'varying vec3 vColor;',
+    'varying vec3 vNormal;',
+    'varying float vEmit;',
+    'varying float vDist;',
+    'void main(){',
+    '  gl_Position = uVP * vec4(aPos, 1.0);',
+    '  vColor = aColor;',
+    '  vNormal = aNormal;',
+    '  vEmit = aEmit;',
+    '  vec3 d = aPos - uCam;',
+    '  vDist = length(d);',
+    '}'
+  ].join('\n');
+  var FS = [
+    'precision mediump float;',
+    'varying vec3 vColor;',
+    'varying vec3 vNormal;',
+    'varying float vEmit;',
+    'varying float vDist;',
+    'uniform vec3 uLight1;',
+    'uniform vec3 uLight2;',
+    'uniform vec3 uFog;',
+    'uniform float uMode;',
+    'void main(){',
+    '  if (uMode > 0.5) {',
+    '    gl_FragColor = vec4(vColor, clamp(vEmit, 0.0, 1.0));',
+    '    return;',
+    '  }',
+    '  float ln = length(vNormal);',
+    '  vec3 n = ln > 0.0001 ? vNormal / ln : vec3(0.0, 1.0, 0.0);',
+    '  float d1 = max(0.0, dot(n, uLight1));',
+    '  float d2 = max(0.0, dot(n, uLight2));',
+    '  float light = 0.36 + d1 * 0.58 + d2 * 0.24;',
+    '  vec3 col = vColor * light + vColor * vEmit;',
+    '  float fog = clamp((vDist - 12.0) / 30.0, 0.0, 0.48);',
+    '  col = mix(col, uFog, fog);',
+    '  gl_FragColor = vec4(col, 1.0);',
+    '}'
+  ].join('\n');
+
+  function compile(type, src) {
+    var s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  var prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.bindAttribLocation(prog, 0, 'aPos');
+  gl.bindAttribLocation(prog, 1, 'aNormal');
+  gl.bindAttribLocation(prog, 2, 'aColor');
+  gl.bindAttribLocation(prog, 3, 'aEmit');
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    document.getElementById('menu').innerHTML = '<div class="card"><h1>КАЛИБР</h1><p class="hint">Не удалось запустить графику.</p></div>';
+    return;
+  }
+  gl.useProgram(prog);
+  var locVP = gl.getUniformLocation(prog, 'uVP');
+  var locCam = gl.getUniformLocation(prog, 'uCam');
+  var locL1 = gl.getUniformLocation(prog, 'uLight1');
+  var locL2 = gl.getUniformLocation(prog, 'uLight2');
+  var locFog = gl.getUniformLocation(prog, 'uFog');
+  var locMode = gl.getUniformLocation(prog, 'uMode');
+  gl.uniform3fv(locL1, new Float32Array(norm3(0.22, 0.95, -0.18)));
+  gl.uniform3fv(locL2, new Float32Array(norm3(-0.4, 0.22, 0.78)));
+  gl.uniform3fv(locFog, new Float32Array([0.10, 0.08, 0.06]));
+  var eyeU = new Float32Array(EYE);
+  gl.enable(gl.DEPTH_TEST);
+  gl.clearColor(0.10, 0.08, 0.06, 1);
+
+  function MeshBuilder(cap) {
+    this.a = new Float32Array(cap * 10);
+    this.n = 0;
+  }
+  MeshBuilder.prototype.v = function (x, y, z, nx, ny, nz, r, g, b, e) {
+    var i = this.n * 10;
+    if (i + 10 > this.a.length) return;
+    var a = this.a;
+    a[i] = x; a[i + 1] = y; a[i + 2] = z;
+    a[i + 3] = nx; a[i + 4] = ny; a[i + 5] = nz;
+    a[i + 6] = r; a[i + 7] = g; a[i + 8] = b; a[i + 9] = e;
+    this.n++;
+  };
+  MeshBuilder.prototype.tri = function (p0, p1, p2, n, c, e) {
+    if ((this.n + 3) * 10 > this.a.length) return;
+    this.v(p0[0], p0[1], p0[2], n[0], n[1], n[2], c[0], c[1], c[2], e);
+    this.v(p1[0], p1[1], p1[2], n[0], n[1], n[2], c[0], c[1], c[2], e);
+    this.v(p2[0], p2[1], p2[2], n[0], n[1], n[2], c[0], c[1], c[2], e);
+  };
+  MeshBuilder.prototype.quad = function (p0, p1, p2, p3, n, c, e) {
+    this.tri(p0, p1, p2, n, c, e);
+    this.tri(p0, p2, p3, n, c, e);
+  };
+
+  function addBox(mb, x, y, z, hx, hy, hz, col, e) {
+    var faces = [
+      { n: [1, 0, 0], d: hx, u: [0, hy, 0], v: [0, 0, hz] },
+      { n: [-1, 0, 0], d: hx, u: [0, hy, 0], v: [0, 0, hz] },
+      { n: [0, 1, 0], d: hy, u: [hx, 0, 0], v: [0, 0, hz] },
+      { n: [0, -1, 0], d: hy, u: [hx, 0, 0], v: [0, 0, hz] },
+      { n: [0, 0, 1], d: hz, u: [hx, 0, 0], v: [0, hy, 0] },
+      { n: [0, 0, -1], d: hz, u: [hx, 0, 0], v: [0, hy, 0] }
+    ];
+    for (var i = 0; i < faces.length; i++) {
+      var f = faces[i];
+      var cx = x + f.n[0] * f.d, cy = y + f.n[1] * f.d, cz = z + f.n[2] * f.d;
+      var u = f.u, v = f.v;
+      mb.quad(
+        [cx - u[0] - v[0], cy - u[1] - v[1], cz - u[2] - v[2]],
+        [cx + u[0] - v[0], cy + u[1] - v[1], cz + u[2] - v[2]],
+        [cx + u[0] + v[0], cy + u[1] + v[1], cz + u[2] + v[2]],
+        [cx - u[0] + v[0], cy - u[1] + v[1], cz - u[2] + v[2]],
+        f.n, col, e
+      );
+    }
+  }
+  function addBoxO(mb, c, X, Y, Z, hx, hy, hz, col, e) {
+    function corn(sx, sy, sz) {
+      return [
+        c[0] + X[0] * hx * sx + Y[0] * hy * sy + Z[0] * hz * sz,
+        c[1] + X[1] * hx * sx + Y[1] * hy * sy + Z[1] * hz * sz,
+        c[2] + X[2] * hx * sx + Y[2] * hy * sy + Z[2] * hz * sz
+      ];
+    }
+    var nX = [-X[0], -X[1], -X[2]];
+    var nY = [-Y[0], -Y[1], -Y[2]];
+    var nZ = [-Z[0], -Z[1], -Z[2]];
+    mb.quad(corn(1, -1, -1), corn(1, 1, -1), corn(1, 1, 1), corn(1, -1, 1), X, col, e);
+    mb.quad(corn(-1, -1, 1), corn(-1, 1, 1), corn(-1, 1, -1), corn(-1, -1, -1), nX, col, e);
+    mb.quad(corn(-1, 1, -1), corn(1, 1, -1), corn(1, 1, 1), corn(-1, 1, 1), Y, col, e);
+    mb.quad(corn(-1, -1, 1), corn(1, -1, 1), corn(1, -1, -1), corn(-1, -1, -1), nY, col, e);
+    mb.quad(corn(-1, -1, 1), corn(1, -1, 1), corn(1, 1, 1), corn(-1, 1, 1), Z, col, e);
+    mb.quad(corn(1, -1, -1), corn(-1, -1, -1), corn(-1, 1, -1), corn(1, 1, -1), nZ, col, e);
+  }
+  function addDisc(mb, x, y, z, r, axis, col, e, segs) {
+    var nx = 0, ny = 0, nz = 0;
+    if (axis === 0) nx = 1;
+    else if (axis === 1) ny = 1;
+    else nz = 1;
+    for (var i = 0; i < segs; i++) {
+      var a0 = (i / segs) * 6.2831853;
+      var a1 = ((i + 1) / segs) * 6.2831853;
+      var c0 = Math.cos(a0), s0 = Math.sin(a0);
+      var c1 = Math.cos(a1), s1 = Math.sin(a1);
+      var p1, p2;
+      if (axis === 0) {
+        p1 = [x, y + c0 * r, z + s0 * r];
+        p2 = [x, y + c1 * r, z + s1 * r];
+      } else if (axis === 1) {
+        p1 = [x + c0 * r, y, z + s0 * r];
+        p2 = [x + c1 * r, y, z + s1 * r];
+      } else {
+        p1 = [x + c0 * r, y + s0 * r, z];
+        p2 = [x + c1 * r, y + s1 * r, z];
+      }
+      mb.tri([x, y, z], p1, p2, [nx, ny, nz], col, e);
+    }
+  }
+  function addArc(mb, x, y, z, r0, r1, a0, a1, col, e, segs) {
+    var span = a1 - a0;
+    if (span < 0.02) return;
+    var steps = Math.ceil(segs * span / 6.2831853);
+    if (steps < 2) steps = 2;
+    if (steps > 40) steps = 40;
+    var nrm = [0, 0, 1];
+    for (var i = 0; i < steps; i++) {
+      var t0 = a0 + span * (i / steps);
+      var t1 = a0 + span * ((i + 1) / steps);
+      var c0 = Math.cos(t0), s0 = Math.sin(t0);
+      var c1 = Math.cos(t1), s1 = Math.sin(t1);
+      mb.quad(
+        [x + c0 * r0, y + s0 * r0, z],
+        [x + c0 * r1, y + s0 * r1, z],
+        [x + c1 * r1, y + s1 * r1, z],
+        [x + c1 * r0, y + s1 * r0, z],
+        nrm, col, e
+      );
+    }
+  }
+  function addCylZ(mb, x, y, z, r, hz, col, e, segs) {
+    for (var i = 0; i < segs; i++) {
+      var a0 = (i / segs) * 6.2831853;
+      var a1 = ((i + 1) / segs) * 6.2831853;
+      var c0 = Math.cos(a0), s0 = Math.sin(a0);
+      var c1 = Math.cos(a1), s1 = Math.sin(a1);
+      var nx = c0 + c1, ny = s0 + s1;
+      var nl = Math.sqrt(nx * nx + ny * ny) || 1;
+      nx /= nl; ny /= nl;
+      mb.quad(
+        [x + c0 * r, y + s0 * r, z - hz],
+        [x + c1 * r, y + s1 * r, z - hz],
+        [x + c1 * r, y + s1 * r, z + hz],
+        [x + c0 * r, y + s0 * r, z + hz],
+        [nx, ny, 0], col, e
+      );
+    }
+  }
+  function addBB(mb, x, y, z, s, right, up, col, alpha) {
+    var rx = right[0] * s, ry = right[1] * s, rz = right[2] * s;
+    var ux = up[0] * s, uy = up[1] * s, uz = up[2] * s;
+    mb.quad(
+      [x - rx - ux, y - ry - uy, z - rz - uz],
+      [x + rx - ux, y + ry - uy, z + rz - uz],
+      [x + rx + ux, y + ry + uy, z + rz + uz],
+      [x - rx + ux, y - ry + uy, z - rz + uz],
+      [0, 1, 0], col, alpha
+    );
+  }
+  function addTracer(mb, a, b, width, alpha, right) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+    var len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+    dx /= len; dy /= len; dz /= len;
+    var sx = right[0], sy = right[1], sz = right[2];
+    var dot = sx * dx + sy * dy + sz * dz;
+    sx -= dx * dot; sy -= dy * dot; sz -= dz * dot;
+    var sl = Math.sqrt(sx * sx + sy * sy + sz * sz) || 1;
+    sx = sx / sl * width; sy = sy / sl * width; sz = sz / sl * width;
+    mb.quad(
+      [a[0] - sx, a[1] - sy, a[2] - sz],
+      [a[0] + sx, a[1] + sy, a[2] + sz],
+      [b[0] + sx, b[1] + sy, b[2] + sz],
+      [b[0] - sx, b[1] - sy, b[2] - sz],
+      [0, 1, 0], [1, 0.86, 0.42], alpha
+    );
+  }
+
+  function buildRoom(mb) {
+    var wall = [0.67, 0.59, 0.49];
+    var wallB = [0.30, 0.26, 0.23];
+    var floor = [0.47, 0.41, 0.34];
+    var ceil = [0.38, 0.34, 0.30];
+    var trim = [0.18, 0.15, 0.13];
+    var accent = [0.84, 0.46, 0.16];
+    addBox(mb, 0, -0.16, -4.7, 7.7, 0.16, 11.75, floor, 0);
+    addBox(mb, 0, INNER_H + 0.12, -4.7, 7.7, 0.12, 11.75, ceil, 0);
+    addBox(mb, -INNER_X - 0.16, 2.02, -4.7, 0.16, 2.2, 11.75, wall, 0);
+    addBox(mb, INNER_X + 0.16, 2.02, -4.7, 0.16, 2.2, 11.75, wall, 0);
+    addBox(mb, 0, 2.02, INNER_Z0 - 0.16, 7.55, 2.2, 0.16, wallB, 0);
+    addBox(mb, 0, 2.02, INNER_Z1 + 0.16, 7.55, 2.2, 0.16, wall, 0);
+    addBox(mb, 0, 0.14, INNER_Z0 + 0.03, 7.05, 0.14, 0.02, trim, 0);
+    addBox(mb, -INNER_X + 0.04, 0.12, -4.7, 0.03, 0.12, 11.2, trim, 0);
+    addBox(mb, INNER_X - 0.04, 0.12, -4.7, 0.03, 0.12, 11.2, trim, 0);
+    addBox(mb, -INNER_X + 0.05, 3.62, -4.6, 0.045, 0.035, 10.6, accent, 0.12);
+    addBox(mb, INNER_X - 0.05, 3.62, -4.6, 0.045, 0.035, 10.6, accent, 0.12);
+    addBox(mb, 0, 2.72, INNER_Z0 + 0.035, 6.3, 0.02, 0.01, accent, 0.28);
+    addBox(mb, 0, 0.55, INNER_Z0 + 0.035, 6.3, 0.02, 0.01, accent, 0.28);
+    var z, major, ix;
+    for (z = 5; z >= -15; z -= 1) {
+      major = (Math.round(Math.abs(z)) % 5) === 0;
+      addBox(mb, 0, 0.02, z, 6.15, 0.008, major ? 0.028 : 0.012, major ? [0.78, 0.58, 0.22] : [0.38, 0.34, 0.29], major ? 0.1 : 0);
+    }
+    addBox(mb, -1.55, 0.026, -5.2, 0.012, 0.006, 9.6, [0.62, 0.5, 0.28], 0.05);
+    addBox(mb, 1.55, 0.026, -5.2, 0.012, 0.006, 9.6, [0.62, 0.5, 0.28], 0.05);
+    for (z = 2; z >= -14; z -= 4) {
+      addBox(mb, 0, 3.96, z, 6.8, 0.035, 0.05, [0.26, 0.23, 0.2], 0);
+      addBox(mb, 0, 3.78, z, 1.2, 0.03, 0.13, [1, 0.78, 0.42], 1.15);
+      addBox(mb, 0, 3.9, z, 0.025, 0.07, 0.025, [0.22, 0.2, 0.18], 0);
+      addBox(mb, 0, 0.01, z, 1.6, 0.004, 0.7, [0.62, 0.52, 0.38], 0.18);
+    }
+    for (z = 3.2; z >= -14; z -= 2.7) {
+      addBox(mb, -INNER_X + 0.05, 1.95, z, 0.035, 1.0, 0.95, [0.74, 0.66, 0.55], 0);
+      addBox(mb, INNER_X - 0.05, 1.95, z, 0.035, 1.0, 0.95, [0.74, 0.66, 0.55], 0);
+    }
+    var posts = [1.2, -3.2, -8.2, -13.2];
+    for (ix = 0; ix < posts.length; ix++) {
+      z = posts[ix];
+      addBox(mb, -6.5, 0.55, z, 0.055, 0.55, 0.055, [0.24, 0.24, 0.26], 0);
+      addBox(mb, -6.5, 1.14, z, 0.07, 0.02, 0.07, accent, 0.45);
+      addBox(mb, 6.5, 0.55, z, 0.055, 0.55, 0.055, [0.24, 0.24, 0.26], 0);
+      addBox(mb, 6.5, 1.14, z, 0.07, 0.02, 0.07, accent, 0.45);
+    }
+    for (ix = 0; ix < CRATES.length; ix++) {
+      var c = CRATES[ix];
+      addBox(mb, c.x, c.y, c.z, c.hx, c.hy, c.hz, c.col, 0);
+    }
+    addDisc(mb, 0, 0.03, 4.15, 0.48, 1, [0.2, 0.17, 0.14], 0, 18);
+    addDisc(mb, 0, 0.036, 4.15, 0.07, 1, accent, 0.3, 10);
+  }
+
+  var room = new MeshBuilder(14000);
+  buildRoom(room);
+  var bufRoom = gl.createBuffer();
+  var bufO = gl.createBuffer();
+  var bufA = gl.createBuffer();
+  var bufS = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufRoom);
+  gl.bufferData(gl.ARRAY_BUFFER, room.a.subarray(0, room.n * 10), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.enableVertexAttribArray(1);
+  gl.enableVertexAttribArray(2);
+  gl.enableVertexAttribArray(3);
+  var dynO = new MeshBuilder(28000);
+  var dynA = new MeshBuilder(10000);
+  var dynS = new MeshBuilder(4000);
+
+  function drawBuf(buffer, vertCount, mode, blend) {
+    if (vertCount <= 0) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 40, 0);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 40, 12);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 40, 24);
+    gl.vertexAttribPointer(3, 1, gl.FLOAT, false, 40, 36);
+    gl.uniform1f(locMode, mode);
+    if (blend === 0) {
+      gl.disable(gl.BLEND);
+      gl.depthMask(true);
+    } else if (blend === 1) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+      gl.depthMask(false);
+    } else {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(false);
+    }
+    gl.drawArrays(gl.TRIANGLES, 0, vertCount);
+  }
+
+  function getView() {
+    var pi = clamp(pitch + recoilP, -1.3, 1.3);
+    var ya = yaw + recoilY;
+    var b = basis(ya, pi);
+    var center = [EYE[0] + b.f[0], EYE[1] + b.f[1], EYE[2] + b.f[2]];
+    var view = mat4LookAt(EYE, center, [0, 1, 0]);
+    var aspect = canvas.width / Math.max(1, canvas.height);
+    var tanHalfX = 1;
+    var tanHalfY = tanHalfX / aspect;
+    var fovY = 2 * Math.atan(tanHalfY);
+    var proj = mat4Perspective(fovY, aspect, 0.05, 90);
+    var vp = mat4Multiply(proj, view);
+    return {
+      vp: vp,
+      tanHalfX: tanHalfX,
+      tanHalfY: tanHalfY,
+      ax: {
+        r: [view[0], view[4], view[8]],
+        u: [view[1], view[5], view[9]],
+        f: [-view[2], -view[6], -view[10]]
+      }
+    };
+  }
+
+  function screenDir(view, sx, sy) {
+    var ndcX = (sx / cssW) * 2 - 1;
+    var ndcY = 1 - (sy / cssH) * 2;
+    var ax = view.ax;
+    return norm3(
+      ax.r[0] * ndcX * view.tanHalfX + ax.u[0] * ndcY * view.tanHalfY + ax.f[0],
+      ax.r[1] * ndcX * view.tanHalfX + ax.u[1] * ndcY * view.tanHalfY + ax.f[1],
+      ax.r[2] * ndcX * view.tanHalfX + ax.u[2] * ndcY * view.tanHalfY + ax.f[2]
+    );
+  }
+
+  function pickType() {
+    var r = Math.random();
+    if (r < 0.08) return 'gold';
+    if (r < 0.28) return 'small';
+    if (r < 0.5) return 'move';
+    return 'norm';
+  }
+  function overlapsCrate(x, y, z, r) {
+    for (var i = 0; i < CRATES.length; i++) {
+      var c = CRATES[i];
+      var dx = Math.max(Math.abs(x - c.x) - c.hx, 0);
+      var dy = Math.max(Math.abs(y - c.y) - c.hy, 0);
+      var dz = Math.max(Math.abs(z - c.z) - c.hz, 0);
+      if (dx * dx + dy * dy + dz * dz < (r + 0.3) * (r + 0.3)) return true;
+    }
+    return false;
+  }
+  function overlapsTarget(x, y, z, r) {
+    for (var i = 0; i < targets.length; i++) {
+      var o = targets[i];
+      var dx = o.baseX - x, dy = o.baseY - y, dz = o.baseZ - z;
+      var minD = r + o.radius + 0.6;
+      if (dx * dx + dy * dy + dz * dz < minD * minD) return true;
+    }
+    return false;
+  }
+  function spawnTarget() {
+    for (var attempt = 0; attempt < 18; attempt++) {
+      var type = pickType();
+      var radius = type === 'small' ? 0.24 : type === 'move' ? 0.34 : type === 'gold' ? 0.3 : 0.4;
+      var x = type === 'move' ? rand(-3.1, 3.1) : rand(-4.7, 4.7);
+      var y = rand(0.9, 2.45);
+      var z = Math.random() < 0.55 ? rand(-14.2, -8.2) : rand(-7.4, -2.8);
+      var amp = type === 'move' ? rand(1.0, 1.5) : 0;
+      if (overlapsCrate(x, y, z, radius + amp)) continue;
+      if (overlapsTarget(x, y, z, radius)) continue;
+      var life = type === 'small' ? 1.28 : type === 'move' ? 2.25 : type === 'gold' ? 0.92 : 1.85;
+      if (timeLeft < 25) life *= 0.88;
+      targets.push({
+        baseX: x, baseY: y, baseZ: z,
+        x: x, y: y, z: z,
+        radius: radius, vis: radius * 0.3,
+        type: type, life: life, maxLife: life,
+        age: 0, phase: Math.random() * 6.28,
+        moveAmp: amp, moveSpeed: rand(1.35, 2.35)
+      });
+      burst(x, y, z, [1, 0.82, 0.5], 5, 0.7, 0.18);
+      return;
+    }
+  }
+
+  function burst(x, y, z, col, n, speed, life) {
+    if (particles.length > 220) particles.splice(0, particles.length - 180);
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * 6.2831853;
+      var u = Math.random() * 2 - 1;
+      var ring = Math.sqrt(Math.max(0, 1 - u * u));
+      var s = speed * (0.35 + Math.random());
+      var lf = life * (0.55 + Math.random() * 0.6);
+      particles.push({
+        x: x, y: y, z: z,
+        vx: Math.cos(a) * ring * s,
+        vy: Math.abs(u) * s * 0.85 + 0.25,
+        vz: Math.sin(a) * ring * s,
+        life: lf, max: lf,
+        size: 0.02 + Math.random() * 0.045,
+        col: col
+      });
+    }
+  }
+
+  function clearFloaters() {
+    for (var i = 0; i < floaters.length; i++) floaters[i].el.remove();
+    floaters.length = 0;
+  }
+  function addFloater(text, x, y, z, color) {
+    if (floaters.length > 12) {
+      var old = floaters.shift();
+      old.el.remove();
+    }
+    var node = document.createElement('div');
+    node.className = 'floater';
+    node.textContent = text;
+    node.style.color = color;
+    el.fx.appendChild(node);
+    floaters.push({ el: node, x: x, y: y + 0.15, z: z, life: 0.72, max: 0.72 });
+  }
+  function showPraise(text) {
+    el.praise.textContent = text;
+    el.praise.style.opacity = '1';
+    praiseTimer = 0.85;
+  }
+  function showHitmark(gold) {
+    el.hitmark.className = '';
+    void el.hitmark.offsetWidth;
+    el.hitmark.className = gold ? 'gold show' : 'show';
+    hitT = 0.1;
+  }
+  function showMiss() {
+    el.cross.classList.add('miss');
+    missT = 0.08;
+  }
+
+  function rayAABB(ro, rd, bmin, bmax) {
+    var tNear = -1e9, tFar = 1e9, nAxis = 0, nSign = 1;
+    for (var i = 0; i < 3; i++) {
+      if (Math.abs(rd[i]) < 1e-8) {
+        if (ro[i] < bmin[i] || ro[i] > bmax[i]) return null;
+        continue;
+      }
+      var t1 = (bmin[i] - ro[i]) / rd[i];
+      var t2 = (bmax[i] - ro[i]) / rd[i];
+      var sign = -1;
+      if (t1 > t2) { var tmp = t1; t1 = t2; t2 = tmp; sign = 1; }
+      if (t1 > tNear) { tNear = t1; nAxis = i; nSign = sign; }
+      if (t2 < tFar) tFar = t2;
+      if (tNear > tFar) return null;
+    }
+    if (tNear < 0.08) return null;
+    var n = [0, 0, 0];
+    n[nAxis] = nSign;
+    return {
+      t: tNear,
+      x: ro[0] + rd[0] * tNear,
+      y: ro[1] + rd[1] * tNear,
+      z: ro[2] + rd[2] * tNear,
+      n: n
+    };
+  }
+  function hitDisc(ro, rd, t) {
+    if (Math.abs(rd[2]) < 1e-5) return null;
+    var dist = (t.z - ro[2]) / rd[2];
+    if (dist < 0.35) return null;
+    var x = ro[0] + rd[0] * dist;
+    var y = ro[1] + rd[1] * dist;
+    var dx = x - t.x, dy = y - t.y;
+    var r = t.vis || t.radius;
+    if (dx * dx + dy * dy > r * r) return null;
+    var br = r * 0.18;
+    return { dist: dist, x: x, y: y, z: t.z, bull: dx * dx + dy * dy <= br * br };
+  }
+  function rayRoom(ro, rd) {
+    var best = null, bestT = 1e9;
+    function consider(t, x, y, z, nx, ny, nz) {
+      if (t > 0.4 && t < bestT) {
+        bestT = t;
+        best = { t: t, x: x, y: y, z: z, n: [nx, ny, nz] };
+      }
+    }
+    var x, y, z, t;
+    if (rd[2] < -1e-6) {
+      t = (INNER_Z0 + 0.02 - ro[2]) / rd[2];
+      x = ro[0] + rd[0] * t; y = ro[1] + rd[1] * t;
+      if (x > -INNER_X + 0.1 && x < INNER_X - 0.1 && y > 0.05 && y < INNER_H - 0.08) consider(t, x, y, INNER_Z0 + 0.02, 0, 0, 1);
+    }
+    if (rd[2] > 1e-6) {
+      t = (INNER_Z1 - 0.02 - ro[2]) / rd[2];
+      x = ro[0] + rd[0] * t; y = ro[1] + rd[1] * t;
+      if (x > -INNER_X + 0.1 && x < INNER_X - 0.1 && y > 0.05 && y < INNER_H - 0.08) consider(t, x, y, INNER_Z1 - 0.02, 0, 0, -1);
+    }
+    if (rd[0] < -1e-6) {
+      t = (-INNER_X + 0.02 - ro[0]) / rd[0];
+      y = ro[1] + rd[1] * t; z = ro[2] + rd[2] * t;
+      if (y > 0.05 && y < INNER_H - 0.08 && z > INNER_Z0 + 0.1 && z < INNER_Z1 - 0.1) consider(t, -INNER_X + 0.02, y, z, 1, 0, 0);
+    }
+    if (rd[0] > 1e-6) {
+      t = (INNER_X - 0.02 - ro[0]) / rd[0];
+      y = ro[1] + rd[1] * t; z = ro[2] + rd[2] * t;
+      if (y > 0.05 && y < INNER_H - 0.08 && z > INNER_Z0 + 0.1 && z < INNER_Z1 - 0.1) consider(t, INNER_X - 0.02, y, z, -1, 0, 0);
+    }
+    if (rd[1] < -1e-6) {
+      t = (0.03 - ro[1]) / rd[1];
+      x = ro[0] + rd[0] * t; z = ro[2] + rd[2] * t;
+      if (x > -INNER_X && x < INNER_X && z > INNER_Z0 && z < INNER_Z1) consider(t, x, 0.03, z, 0, 1, 0);
+    }
+    if (rd[1] > 1e-6) {
+      t = (INNER_H - 0.04 - ro[1]) / rd[1];
+      x = ro[0] + rd[0] * t; z = ro[2] + rd[2] * t;
+      if (x > -INNER_X && x < INNER_X && z > INNER_Z0 && z < INNER_Z1) consider(t, x, INNER_H - 0.04, z, 0, -1, 0);
+    }
+    return best;
+  }
+
+  function impact(hit, wood) {
+    var col = wood ? [0.72, 0.5, 0.28] : [0.75, 0.72, 0.66];
+    burst(hit.x, hit.y, hit.z, col, 8, 2.1, 0.32);
+    if (decals.length > 28) decals.shift();
+    decals.push({
+      x: hit.x + hit.n[0] * 0.05,
+      y: hit.y + hit.n[1] * 0.05,
+      z: hit.z + hit.n[2] * 0.05,
+      n: hit.n,
+      r: 0.025 + Math.random() * 0.02,
+      life: 14
+    });
+  }
+
+  function registerHit(t, h) {
+    var ms = t.age * 1000;
+    combo += 1;
+    if (combo > maxCombo) maxCombo = combo;
+    var pts = h.bull ? 170 : 100;
+    if (t.type === 'small') pts = Math.round(pts * 1.55);
+    else if (t.type === 'move') pts = Math.round(pts * 1.35);
+    else if (t.type === 'gold') pts = Math.round(pts * 2.1);
+    if (t.age < 0.3) pts += 50;
+    else if (t.age < 0.42) pts += 25;
+    pts += Math.min(combo, 15) * 8;
+    score += pts;
+    hits += 1;
+    reactSum += ms;
+    reacts.push(ms);
+    if (ms < bestReact) bestReact = ms;
+    var label = '+' + pts;
+    var color = '#ffe7c2';
+    if (t.type === 'gold') { label = 'ЗОЛОТО +' + pts; color = '#ffd76a'; }
+    else if (h.bull) { label = 'ЦЕНТР +' + pts; color = '#fff1b0'; }
+    else if (t.type === 'small') color = '#ffb06a';
+    else if (t.type === 'move') color = '#9ad7ff';
+    addFloater(label, h.x, h.y, h.z, color);
+    burst(h.x, h.y, h.z, [1, 0.95, 0.8], 12, 2.6, 0.28);
+    burst(h.x, h.y, h.z, t.type === 'gold' ? [1, 0.8, 0.3] : [1, 0.35, 0.22], 8, 1.5, 0.38);
+    showHitmark(h.bull || t.type === 'gold');
+    playHit(h.bull, t.type === 'gold');
+    if (PRAISE[combo]) {
+      showPraise(PRAISE[combo]);
+      beep(500 + combo * 28, 0.08, 0.07, 'triangle');
+    }
+    var idx = targets.indexOf(t);
+    if (idx >= 0) targets.splice(idx, 1);
+    spawnIn = Math.max(spawnIn, 0.08);
+  }
+
+  function shoot(dir) {
+    var now = performance.now();
+    if (now < nextShotAt) return;
+    nextShotAt = now + 115;
+    shotKick = 1;
+    playShot();
+    flashA = 0.72;
+    var locked = document.pointerLockElement === canvas;
+    el.flash.style.left = (locked ? cssW * 0.5 : mouseX) + 'px';
+    el.flash.style.top = (locked ? cssH * 0.5 : mouseY) + 'px';
+
+    var blockT = 1e9, blockHit = null, blockWood = false;
+    for (var i = 0; i < CRATES.length; i++) {
+      var c = CRATES[i];
+      var h = rayAABB(EYE, dir, [c.x - c.hx, c.y - c.hy, c.z - c.hz], [c.x + c.hx, c.y + c.hy, c.z + c.hz]);
+      if (h && h.t < blockT) { blockT = h.t; blockHit = h; blockWood = c.wood; }
+    }
+    var best = null, bestT = blockT, bestTarget = null;
+    for (i = 0; i < targets.length; i++) {
+      var ht = hitDisc(EYE, dir, targets[i]);
+      if (ht && ht.dist < bestT) { bestT = ht.dist; best = ht; bestTarget = targets[i]; }
+    }
+    var end;
+    if (best) end = [best.x, best.y, best.z];
+    else if (blockHit) end = [blockHit.x, blockHit.y, blockHit.z];
+    else end = [EYE[0] + dir[0] * 28, EYE[1] + dir[1] * 28, EYE[2] + dir[2] * 28];
+    tracers.push({
+      a: [EYE[0] + dir[0] * 0.4, EYE[1] + dir[1] * 0.4, EYE[2] + dir[2] * 0.4],
+      b: end, life: 0.07, max: 0.07
+    });
+    for (i = 0; i < 3; i++) {
+      particles.push({
+        x: EYE[0] + dir[0] * 0.65, y: EYE[1] + dir[1] * 0.65 - 0.04, z: EYE[2] + dir[2] * 0.65,
+        vx: (Math.random() - 0.5) * 0.4, vy: 0.15, vz: (Math.random() - 0.5) * 0.4,
+        life: 0.16, max: 0.16, size: 0.035, col: [0.85, 0.82, 0.7]
+      });
+    }
+    particles.push({
+      x: EYE[0] + dir[0] * 0.45 + 0.12, y: EYE[1] + dir[1] * 0.45 - 0.12, z: EYE[2] + dir[2] * 0.45,
+      vx: 1.4, vy: 1.3, vz: 0.3,
+      life: 0.4, max: 0.4, size: 0.016, col: [0.9, 0.7, 0.28]
+    });
+
+    if (bestTarget) {
+      registerHit(bestTarget, best);
+    } else {
+      misses += 1;
+      combo = 0;
+      showMiss();
+      if (blockHit) impact(blockHit, blockWood);
+      else {
+        var wall = rayRoom(EYE, dir);
+        if (wall) impact(wall, false);
+      }
+    }
+    recoilP += 0.015 + Math.random() * 0.005;
+    recoilY += (Math.random() - 0.5) * 0.006;
+  }
+
+  function resetRound() {
+    hits = 0; misses = 0; score = 0; combo = 0; maxCombo = 0;
+    reactSum = 0; bestReact = 1e9; reacts = [];
+    timeLeft = 60; lastWarn = 99; spawnIn = 0.15;
+    targets = []; particles = []; tracers = []; decals = [];
+    clearFloaters();
+    el.praise.style.opacity = '0';
+    el.combo.style.opacity = '0';
+    praiseTimer = 0;
+  }
+
+  function startGame() {
+    resetRound();
+    yaw = 0;
+    pitch = -0.04;
+    recoilP = 0;
+    recoilY = 0;
+    shotKick = 0;
+    state = 'countdown';
+    countLeft = 3;
+    lastCountLabel = '';
+    document.body.classList.add('live');
+    document.body.classList.add('counting');
+    document.body.classList.remove('danger');
+    document.body.classList.remove('hot');
+    document.body.classList.remove('hidehelp');
+    el.menu.classList.add('hidden');
+    el.results.classList.add('hidden');
+    updateHUD();
+  }
+
+  function requestLock() {
+    if (!canvas.requestPointerLock) return;
+    try {
+      var r = canvas.requestPointerLock();
+      if (r && typeof r.then === 'function') r.then(function () {}, function () {});
+    } catch (e) {}
+  }
+
+  function onPlay() {
+    ensureAudio();
+    playClick();
+    startGame();
+    requestLock();
+  }
+
+  function rankOf(sc) {
+    if (sc >= 8500) return ['Глобал', 'Выше уже только легенды'];
+    if (sc >= 6000) return ['Элита', 'Так стреляют на ланах'];
+    if (sc >= 4000) return ['Мастер', 'Мишени почти не живут'];
+    if (sc >= 2500) return ['Ветеран', 'Уверенный темп и твёрдый прицел'];
+    if (sc >= 1200) return ['Стрелок', 'Разминка засчитана. Можно быстрее'];
+    return ['Новобранец', 'Спокойнее рука — чище попадания'];
+  }
+
+  function fillResults() {
+    var rk = rankOf(score);
+    el.rRank.textContent = rk[0];
+    el.rFlavor.textContent = rk[1];
+    el.rScore.textContent = String(score);
+    el.rHits.textContent = String(hits);
+    el.rMiss.textContent = String(misses);
+    var tot = hits + misses;
+    el.rAcc.textContent = tot ? (hits / tot * 100).toFixed(1) + '%' : '—';
+    el.rReact.textContent = hits ? Math.round(reactSum / hits) + ' мс' : '—';
+    el.rBest.textContent = hits ? Math.round(bestReact) + ' мс' : '—';
+    el.rCombo.textContent = String(maxCombo);
+    var isNew = false;
+    if (score > bestScore) {
+      bestScore = score;
+      isNew = true;
+      try { localStorage.setItem('kalibr-best', String(bestScore)); } catch (e) {}
+    }
+    el.resRec.textContent = isNew ? ('Новый рекорд: ' + bestScore) : recLabel();
+    el.resRec.className = isNew ? 'rec new' : 'rec';
+    el.menuRec.textContent = recLabel();
+    el.spark.innerHTML = '';
+    if (!reacts.length) {
+      el.spark.innerHTML = '<em>нет данных</em>';
+      return;
+    }
+    var slice = reacts.length > 36 ? reacts.slice(reacts.length - 36) : reacts;
+    var max = 200;
+    for (var i = 0; i < slice.length; i++) if (slice[i] > max) max = slice[i];
+    for (i = 0; i < slice.length; i++) {
+      var bar = document.createElement('i');
+      var h = Math.max(8, Math.round((1 - slice[i] / (max * 1.08)) * 44 + 8));
+      bar.style.height = h + 'px';
+      bar.style.background = slice[i] < 280 ? '#7dff9a' : slice[i] < 450 ? '#ffd15a' : '#ff7a55';
+      el.spark.appendChild(bar);
+    }
+  }
+
+  function endRound() {
+    state = 'results';
+    targets = [];
+    timeLeft = 0;
+    document.body.classList.remove('live');
+    document.body.classList.remove('counting');
+    document.body.classList.remove('danger');
+    document.body.classList.remove('hot');
+    document.body.classList.remove('unlocked');
+    if (document.pointerLockElement) {
+      try { document.exitPointerLock(); } catch (e) {}
+    }
+    fillResults();
+    el.results.classList.remove('hidden');
+    playEnd();
+    updateHUD();
+  }
+
+  function updateHUD() {
+    var t = timeLeft < 0 ? 0 : timeLeft;
+    setTxt(el.tTime, t.toFixed(1));
+    el.timeWrap.classList.toggle('low', state === 'play' && t <= 10);
+    setTxt(el.tHits, String(hits));
+    setTxt(el.tMiss, String(misses));
+    var tot = hits + misses;
+    setTxt(el.tAcc, tot ? Math.round(hits / tot * 100) + '%' : '—');
+    if (tot) el.tAcc.style.color = hits / tot >= 0.7 ? '#9dff9a' : hits / tot >= 0.45 ? '#ffd15a' : '#ff7a6a';
+    else el.tAcc.style.color = '#fff';
+    if (hits) {
+      var avg = reactSum / hits;
+      setTxt(el.tReact, Math.round(avg) + ' мс');
+      el.tReact.style.color = avg < 320 ? '#9dff9a' : avg < 480 ? '#fff' : '#ffd15a';
+    } else {
+      setTxt(el.tReact, '—');
+      el.tReact.style.color = '#fff';
+    }
+    setTxt(el.tScore, String(score));
+    if (combo >= 2 && (state === 'play' || state === 'countdown')) {
+      el.combo.textContent = 'КОМБО ×' + combo;
+      el.combo.style.opacity = '1';
+    } else el.combo.style.opacity = '0';
+  }
+
+  function updateCountdown(dt) {
+    countLeft -= dt;
+    var label = countLeft > 2 ? '3' : countLeft > 1 ? '2' : countLeft > 0 ? '1' : 'ОГОНЬ';
+    if (label !== lastCountLabel) {
+      lastCountLabel = label;
+      el.count.textContent = label;
+      el.count.className = label === 'ОГОНЬ' ? 'go' : '';
+      if (label === 'ОГОНЬ') beep(523, 0.14, 0.1, 'sawtooth');
+      else beep(880, 0.06, 0.09, 'square');
+    }
+    if (countLeft <= -0.38) {
+      state = 'play';
+      timeLeft = 60;
+      document.body.classList.remove('counting');
+      el.count.textContent = '';
+      el.count.className = '';
+    }
+  }
+
+  function updateTargets(dt) {
+    var cap = timeLeft > 45 ? 1 : 2;
+    for (var i = targets.length - 1; i >= 0; i--) {
+      var t = targets[i];
+      t.age += dt;
+      t.life -= dt;
+      var k = t.age < 0.12 ? t.age / 0.12 : 1;
+      t.vis = t.radius * (0.28 + 0.72 * smooth(k));
+      if (t.type === 'move') t.x = t.baseX + Math.sin(t.phase + t.age * t.moveSpeed) * t.moveAmp;
+      if (t.life <= 0) {
+        misses += 1;
+        combo = 0;
+        addFloater('УШЛА', t.x, t.y, t.z, '#ff6a5a');
+        burst(t.x, t.y, t.z, [0.55, 0.55, 0.55], 6, 1.1, 0.28);
+        targets.splice(i, 1);
+      }
+    }
+    spawnIn -= dt;
+    if (targets.length < cap && spawnIn <= 0) {
+      spawnTarget();
+      spawnIn = 0.1;
+    }
+  }
+
+  function updateParticles(dt) {
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.life -= dt;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      p.vy -= 3.2 * dt;
+    }
+    for (i = tracers.length - 1; i >= 0; i--) {
+      tracers[i].life -= dt;
+      if (tracers[i].life <= 0) tracers.splice(i, 1);
+    }
+    for (i = decals.length - 1; i >= 0; i--) {
+      decals[i].life -= dt;
+      if (decals[i].life <= 0) decals.splice(i, 1);
+    }
+  }
+
+  function drawTarget(mb, t, now) {
+    var r = t.vis || t.radius;
+    var x = t.x, y = t.y, z = t.z;
+    var face = z + 0.034;
+    addCylZ(mb, x, y, z, r, 0.028, [0.08, 0.08, 0.09], 0.04, 16);
+    var c0, c1, c2, c3, pulse = 0.12;
+    if (t.type === 'gold') {
+      c0 = [0.18, 0.13, 0.04]; c1 = [0.95, 0.78, 0.28]; c2 = [0.62, 0.4, 0.08]; c3 = [1, 0.94, 0.6];
+      pulse = 0.35 + 0.35 * Math.sin(now * 0.01);
+    } else if (t.type === 'small') {
+      c0 = [0.22, 0.08, 0.02]; c1 = [1, 0.58, 0.22]; c2 = [0.86, 0.28, 0.08]; c3 = [1, 0.88, 0.62];
+    } else if (t.type === 'move') {
+      c0 = [0.05, 0.1, 0.16]; c1 = [0.4, 0.78, 0.95]; c2 = [0.84, 0.2, 0.18]; c3 = [0.95, 0.96, 0.97];
+    } else {
+      c0 = [0.14, 0.04, 0.04]; c1 = [0.93, 0.93, 0.9]; c2 = [0.82, 0.16, 0.13]; c3 = [0.97, 0.96, 0.93];
+    }
+    addDisc(mb, x, y, face, r, 2, c0, 0.05, 18);
+    addDisc(mb, x, y, face + 0.004, r * 0.86, 2, c1, 0.22 + pulse, 18);
+    addDisc(mb, x, y, face + 0.008, r * 0.58, 2, c2, 0.3 + pulse, 14);
+    addDisc(mb, x, y, face + 0.012, r * 0.32, 2, c1, 0.36 + pulse, 12);
+    addDisc(mb, x, y, face + 0.016, r * 0.15, 2, c3, 0.55 + pulse, 10);
+    var frac = t.maxLife > 0 ? clamp(t.life / t.maxLife, 0, 1) : 1;
+    var lc = frac > 0.55 ? [0.4, 1, 0.5] : frac > 0.28 ? [1, 0.82, 0.3] : [1, 0.35, 0.25];
+    addArc(mb, x, y, face + 0.022, r * 1.12, r * 1.26, 0, 6.2831853, [0.12, 0.12, 0.13], 0.15, 22);
+    addArc(mb, x, y, face + 0.026, r * 1.14, r * 1.24, -1.5708, -1.5708 + frac * 6.2831853, lc, 0.95, 24);
+  }
+
+  function drawWeapon(mb, ax, now) {
+    var kick = shotKick;
+    var bob = Math.sin(now * 0.0015) * 0.003;
+    var f = ax.f, r = ax.r, u = ax.u;
+    var origin = [
+      EYE[0] + r[0] * 0.2 + u[0] * (-0.17 - kick * 0.025 + bob) + f[0] * (0.46 - kick * 0.06),
+      EYE[1] + r[1] * 0.2 + u[1] * (-0.17 - kick * 0.025 + bob) + f[1] * (0.46 - kick * 0.06),
+      EYE[2] + r[2] * 0.2 + u[2] * (-0.17 - kick * 0.025 + bob) + f[2] * (0.46 - kick * 0.06)
+    ];
+    var parts = [
+      [0, 0.0, 0.02, 0.026, 0.032, 0.15, 0.15, 0.15, 0.16],
+      [0, 0.012, 0.26, 0.01, 0.01, 0.18, 0.1, 0.1, 0.11],
+      [0, -0.05, 0.03, 0.014, 0.05, 0.026, 0.09, 0.09, 0.1],
+      [0, 0.0, -0.15, 0.02, 0.034, 0.1, 0.4, 0.25, 0.13],
+      [0, -0.038, -0.02, 0.013, 0.042, 0.018, 0.36, 0.22, 0.12],
+      [0, -0.002, 0.13, 0.024, 0.026, 0.07, 0.16, 0.15, 0.14],
+      [0, 0.036, 0.04, 0.007, 0.01, 0.045, 0.12, 0.12, 0.12],
+      [0, 0.028, 0.42, 0.006, 0.014, 0.008, 1, 0.55, 0.12]
+    ];
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var c = [
+        origin[0] + r[0] * p[0] + u[0] * p[1] + f[0] * p[2],
+        origin[1] + r[1] * p[0] + u[1] * p[1] + f[1] * p[2],
+        origin[2] + r[2] * p[0] + u[2] * p[1] + f[2] * p[2]
+      ];
+      addBoxO(mb, c, r, u, f, p[3], p[4], p[5], [p[6], p[7], p[8]], i === 7 ? 0.85 : 0.04);
+    }
+    return [
+      origin[0] + u[0] * 0.012 + f[0] * 0.48,
+      origin[1] + u[1] * 0.012 + f[1] * 0.48,
+      origin[2] + u[2] * 0.012 + f[2] * 0.48
+    ];
+  }
+
+  function project(vp, x, y, z) {
+    var x0 = vp[0] * x + vp[4] * y + vp[8] * z + vp[12];
+    var y0 = vp[1] * x + vp[5] * y + vp[9] * z + vp[13];
+    var w0 = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
+    if (w0 <= 0.05) return null;
+    return {
+      x: (x0 / w0 * 0.5 + 0.5) * cssW,
+      y: (1 - (y0 / w0 * 0.5 + 0.5)) * cssH
+    };
+  }
+
+  function positionFloaters(vp, dt) {
+    for (var i = floaters.length - 1; i >= 0; i--) {
+      var f = floaters[i];
+      f.life -= dt;
+      f.y += dt * 0.55;
+      if (f.life <= 0) {
+        f.el.remove();
+        floaters.splice(i, 1);
+        continue;
+      }
+      var p = project(vp, f.x, f.y, f.z);
+      if (!p) { f.el.style.opacity = '0'; continue; }
+      f.el.style.opacity = String(Math.max(0, f.life / f.max));
+      f.el.style.left = p.x + 'px';
+      f.el.style.top = p.y + 'px';
+    }
+  }
+
+  function updateCrosshair() {
+    var gap = (combo >= 8 ? 2 : combo >= 4 ? 3 : 5) + recoilP * 340 + shotKick * 7;
+    if (gap > 22) gap = 22;
+    el.chT.style.top = (-gap - 10) + 'px';
+    el.chB.style.top = gap + 'px';
+    el.chL.style.left = (-gap - 10) + 'px';
+    el.chR.style.left = gap + 'px';
+    var locked = document.pointerLockElement === canvas;
+    var live = state === 'play' || state === 'countdown';
+    document.body.classList.toggle('unlocked', live && !locked);
+    if (!live || locked) {
+      el.cross.style.left = '50%';
+      el.cross.style.top = '50%';
+    } else {
+      el.cross.style.left = mouseX + 'px';
+      el.cross.style.top = mouseY + 'px';
+    }
+  }
+
+  function update(dt, now) {
+    if (state === 'menu' || state === 'results') {
+      var t = now * 0.001;
+      yaw = Math.sin(t * 0.18) * 0.42;
+      pitch = -0.06 + Math.sin(t * 0.13) * 0.05;
+      recoilP = 0; recoilY = 0; shotKick = 0;
+    } else {
+      recoilP *= Math.exp(-8 * dt);
+      recoilY *= Math.exp(-10 * dt);
+      shotKick *= Math.exp(-12 * dt);
+    }
+    if (state === 'countdown') updateCountdown(dt);
+    if (state === 'play') {
+      timeLeft -= dt;
+      if (timeLeft <= 10 && timeLeft > 0) {
+        var sec = Math.ceil(timeLeft);
+        if (sec !== lastWarn) {
+          lastWarn = sec;
+          beep(sec <= 3 ? 700 : 480, 0.055, 0.06, 'square');
+        }
+      }
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        endRound();
+      } else {
+        updateTargets(dt);
+      }
+    }
+    updateParticles(dt);
+    if (praiseTimer > 0) {
+      praiseTimer -= dt;
+      if (praiseTimer <= 0) el.praise.style.opacity = '0';
+    }
+    if (hitT > 0) {
+      hitT -= dt;
+      if (hitT <= 0) el.hitmark.className = '';
+    }
+    if (missT > 0) {
+      missT -= dt;
+      if (missT <= 0) el.cross.classList.remove('miss');
+    }
+    flashA *= Math.exp(-16 * dt);
+    el.flash.style.opacity = flashA > 0.02 ? String(flashA) : '0';
+    document.body.classList.toggle('danger', state === 'play' && timeLeft <= 10);
+    document.body.classList.toggle('hot', state === 'play' && combo >= 8);
+    document.body.classList.toggle('hidehelp', state === 'play' && timeLeft < 56);
+    if (state === 'play' || state === 'countdown') updateHUD();
+    updateCrosshair();
+  }
+
+  function render(now) {
+    var view = getView();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.uniformMatrix4fv(locVP, false, view.vp);
+    gl.uniform3fv(locCam, eyeU);
+    drawBuf(bufRoom, room.n, 0, 0);
+
+    dynO.n = 0; dynA.n = 0; dynS.n = 0;
+    var i, t, p, ax = view.ax;
+    if (state === 'menu' || state === 'results') {
+      for (i = 0; i < DECOR.length; i++) {
+        var d = DECOR[i];
+        var life = 0.55 + 0.4 * Math.sin(now * 0.0007 + i);
+        if (life < 0.18) life = 0.18;
+        drawTarget(dynO, {
+          x: d.x, y: d.y + Math.sin(now * 0.001 + i) * 0.05, z: d.z,
+          vis: d.r, radius: d.r, type: d.type, life: life, maxLife: 1
+        }, now);
+        addDisc(dynS, d.x, 0.04, d.z, d.r * 0.8, 1, [0, 0, 0], 0.22, 12);
+      }
+    }
+    for (i = 0; i < targets.length; i++) {
+      t = targets[i];
+      drawTarget(dynO, t, now);
+      addDisc(dynS, t.x, 0.04, t.z, (t.vis || t.radius) * 0.8, 1, [0, 0, 0], 0.26, 12);
+    }
+    for (i = 0; i < decals.length; i++) {
+      var dc = decals[i];
+      var axis = Math.abs(dc.n[1]) > 0.5 ? 1 : (Math.abs(dc.n[0]) > 0.5 ? 0 : 2);
+      addDisc(dynO, dc.x, dc.y, dc.z, dc.r, axis, [0.07, 0.06, 0.05], 0, 8);
+    }
+    var muzzle = null;
+    if (state === 'play' || state === 'countdown') muzzle = drawWeapon(dynO, ax, now);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufO);
+    gl.bufferData(gl.ARRAY_BUFFER, dynO.a.subarray(0, dynO.n * 10), gl.DYNAMIC_DRAW);
+    drawBuf(bufO, dynO.n, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufS);
+    gl.bufferData(gl.ARRAY_BUFFER, dynS.a.subarray(0, dynS.n * 10), gl.DYNAMIC_DRAW);
+    drawBuf(bufS, dynS.n, 1, 2);
+
+    for (i = 0; i < dust.length; i++) {
+      var ds = dust[i];
+      var yy = ds.y + Math.sin(now * 0.00045 + ds.ph) * 0.12;
+      var xx = ds.x + Math.sin(now * 0.00025 + ds.ph) * 0.08;
+      addBB(dynA, xx, yy, ds.z, ds.s, ax.r, ax.u, [1, 0.9, 0.7], 0.16);
+    }
+    for (i = 0; i < particles.length; i++) {
+      p = particles[i];
+      addBB(dynA, p.x, p.y, p.z, p.size * (0.6 + p.life / p.max), ax.r, ax.u, p.col, Math.max(0, p.life / p.max));
+    }
+    for (i = 0; i < tracers.length; i++) {
+      var tr = tracers[i];
+      addTracer(dynA, tr.a, tr.b, 0.012, tr.life / tr.max, ax.r);
+    }
+    if (muzzle && shotKick > 0.15) {
+      addBB(dynA, muzzle[0], muzzle[1], muzzle[2], 0.05 + shotKick * 0.09, ax.r, ax.u, [1, 0.86, 0.45], Math.min(1, shotKick));
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufA);
+    gl.bufferData(gl.ARRAY_BUFFER, dynA.a.subarray(0, dynA.n * 10), gl.DYNAMIC_DRAW);
+    drawBuf(bufA, dynA.n, 1, 1);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+    positionFloaters(view.vp, frameDt);
+  }
+
+  function resize() {
+    cssW = Math.max(1, window.innerWidth);
+    cssH = Math.max(1, window.innerHeight);
+    var dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    canvas.width = Math.max(1, Math.floor(cssW * dpr));
+    canvas.height = Math.max(1, Math.floor(cssH * dpr));
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+
+  function frame(now) {
+    if (!lastNow) lastNow = now;
+    var dt = (now - lastNow) / 1000;
+    lastNow = now;
+    if (dt > 0.05) dt = 0.05;
+    if (dt < 0) dt = 0;
+    frameDt = dt;
+    update(dt, now);
+    render(now);
+    requestAnimationFrame(frame);
+  }
+
+  function bindBtn(node, fn) {
+    node.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    node.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      fn();
+    });
+  }
+  bindBtn(el.play, onPlay);
+  bindBtn(el.again, onPlay);
+  el.lock.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+  el.lock.addEventListener('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    requestLock();
+  });
+  window.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return;
+    if (e.target.closest && e.target.closest('button, #lockhint')) return;
+    if (state !== 'play') return;
+    var view = getView();
+    var dir;
+    if (document.pointerLockElement === canvas) dir = norm3(view.ax.f[0], view.ax.f[1], view.ax.f[2]);
+    else dir = screenDir(view, e.clientX, e.clientY);
+    shoot(dir);
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (document.pointerLockElement === canvas) {
+      if (state === 'play' || state === 'countdown') {
+        var mx = e.movementX || 0;
+        var my = e.movementY || 0;
+        if (mx > -400 && mx < 400) yaw += mx * SENS;
+        if (my > -400 && my < 400) pitch -= my * SENS;
+        pitch = clamp(pitch, -1.05, 1.05);
+      }
+    } else {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    }
+  });
+  document.addEventListener('pointerlockchange', function () {
+    if (document.pointerLockElement !== canvas) {
+      mouseX = cssW * 0.5;
+      mouseY = cssH * 0.5;
+    }
+  });
+  document.addEventListener('pointerlockerror', function () {});
+  window.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  window.addEventListener('keydown', function (e) {
+    if (e.repeat) return;
+    if ((e.code === 'KeyR' || e.code === 'Space') && state === 'results') onPlay();
+    if (e.code === 'Space') e.preventDefault();
+  });
+  window.addEventListener('resize', resize);
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
