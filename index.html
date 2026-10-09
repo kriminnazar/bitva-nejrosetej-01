@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Битва нейросетей №1 — аим-тренеры от ИИ</title>
+<meta name="description" content="Пять нейросетей получили одно задание — сделать аим-тренер. Поиграй в три тренажёра, которые заработали.">
+<style>
+@font-face{font-family:Unbounded;src:url(img/Unbounded.ttf);font-weight:200 900;font-display:swap}
+@font-face{font-family:Manrope;src:url(img/Manrope.ttf);font-weight:200 800;font-display:swap}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Manrope,system-ui,sans-serif;color:#0d0d12;background:#f6f4fb;background-image:radial-gradient(rgba(124,58,237,.13) 2px,transparent 2px);background-size:32px 32px;min-height:100vh}
+.wrap{max-width:1180px;margin:0 auto;padding:48px 20px 60px}
+.ey{font-weight:800;font-size:14px;color:#7c3aed;letter-spacing:.04em}
+h1{font-family:Unbounded;font-weight:900;font-size:clamp(34px,6vw,64px);letter-spacing:-.04em;line-height:1.05;margin:8px 0 14px}
+h1 span{background:linear-gradient(90deg,#7c3aed,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{font-size:18px;font-weight:600;color:#4a4660;max-width:760px;line-height:1.5}
+.rules{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 36px}
+.rules b{background:#fff;border-radius:999px;padding:9px 16px;font-size:14px;box-shadow:0 6px 18px rgba(60,20,120,.08)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.card{background:#fff;border-radius:28px;padding:24px;box-shadow:0 18px 50px rgba(60,20,120,.12);display:flex;flex-direction:column;gap:16px;position:relative}
+.card.win{outline:4px solid #f5b301}
+.badge{position:absolute;top:-14px;right:20px;background:#f5b301;color:#fff;font-family:Unbounded;font-weight:800;font-size:13px;padding:7px 14px;border-radius:999px}
+.top{display:flex;align-items:center;gap:14px}
+.lg{width:58px;height:58px;border-radius:16px;background:#f3f0fa;display:flex;align-items:center;justify-content:center;flex:none}
+.lg img{width:36px;height:36px}
+.nm{font-family:Unbounded;font-weight:800;font-size:20px;line-height:1.15}
+.nm small{display:block;font-family:Manrope;font-weight:700;font-size:13px;color:#8a86a0;margin-top:3px}
+.game{font-weight:700;font-size:15px;color:#4a4660}.game i{font-style:normal;color:#0d0d12}
+.sc{display:grid;grid-template-columns:1fr auto;gap:6px 10px;font-weight:700;font-size:15px}
+.sc span:nth-child(even){font-family:Unbounded;font-weight:800;text-align:right}
+.tot{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #eee;padding-top:12px}
+.tot small{color:#8a86a0;font-weight:700}.tot b{font-family:Unbounded;font-weight:900;font-size:44px;color:#7c3aed;line-height:1}
+.meta{font-size:13px;font-weight:700;color:#8a86a0}
+.go{display:block;text-align:center;text-decoration:none;background:linear-gradient(90deg,#7c3aed,#9d4edd);color:#fff;font-family:Unbounded;font-weight:800;font-size:17px;padding:16px;border-radius:999px;box-shadow:0 12px 28px rgba(124,58,237,.35);transition:transform .15s ease}
+.go:hover{transform:translateY(-2px)}.go:active{transform:scale(.97)}
+.fail{margin-top:26px;background:#fff;border-radius:22px;padding:20px 24px;display:flex;flex-wrap:wrap;gap:18px;align-items:center;box-shadow:0 10px 30px rgba(60,20,120,.08)}
+.fail .x{display:flex;align-items:center;gap:10px;font-weight:800}
+.fail .x img{width:28px;height:28px}
+.fail p{flex:1 1 300px;color:#4a4660;font-weight:600;font-size:15px}
+.note{margin-top:26px;font-size:14px;font-weight:600;color:#8a86a0;line-height:1.6}
+.note a{color:#7c3aed;font-weight:800}
+</style></head><body><div class="wrap">
+<div class="ey">НАЗАР | НЕЙРОСЕТИ БЕЗ ВОДЫ</div>
+<h1>Битва <span>нейросетей</span> №1</h1>
+<p class="lead">Пять нейросетей получили одно и то же задание — сделать аим-тренер в стиле CS2. Один запрос, одна попытка, без подсказок. Ниже — три тренажёра, которые заработали. Поиграй и сравни сам.</p>
+<div class="rules"><b>🎯 1 запрос</b><b>🔁 1 попытка</b><b>🚫 без подсказок</b><b>🎨 графика · 🎮 играбельность · ✨ фишки — по 10 баллов</b></div>
+
+<div class="grid">
+ <div class="card win"><div class="badge">🏆 1 МЕСТО</div>
+  <div class="top"><div class="lg"><img src="img/openai.svg" alt=""></div><div class="nm">ChatGPT<small>GPT-6 Astra · OpenAI</small></div></div>
+  <div class="game">Игра: <i>«Точка контакта»</i></div>
+  <div class="sc"><span>🎨 Графика</span><span>9</span><span>🎮 Играбельность</span><span>9</span><span>✨ Фишки</span><span>9</span></div>
+  <div class="tot"><small>Итого из 30</small><b>27</b></div>
+  <div class="meta">Стоимость ответа: $1,27</div>
+  <a class="go" href="games/chatgpt.html">▶ Играть</a>
+ </div>
+ <div class="card"><div class="badge" style="background:#9aa3b2">2 МЕСТО</div>
+  <div class="top"><div class="lg"><img src="img/claude-c.svg" alt=""></div><div class="nm">Claude<small>Claude Fable 5.1 · Anthropic</small></div></div>
+  <div class="game">Игра: <i>«CS AIM LAB»</i></div>
+  <div class="sc"><span>🎨 Графика</span><span>7</span><span>🎮 Играбельность</span><span>9</span><span>✨ Фишки</span><span>7</span></div>
+  <div class="tot"><small>Итого из 30</small><b>23</b></div>
+  <div class="meta">Стоимость ответа: ≈ $4</div>
+  <a class="go" href="games/claude.html">▶ Играть</a>
+ </div>
+ <div class="card"><div class="badge" style="background:#c47a3a">3 МЕСТО</div>
+  <div class="top"><div class="lg"><img src="img/x.svg" alt=""></div><div class="nm">Grok<small>Grok 4.7 · xAI</small></div></div>
+  <div class="game">Игра: <i>«Калибр»</i></div>
+  <div class="sc"><span>🎨 Графика</span><span>6</span><span>🎮 Играбельность</span><span>8</span><span>✨ Фишки</span><span>6</span></div>
+  <div class="tot"><small>Итого из 30</small><b>20</b></div>
+  <div class="meta">Стоимость ответа: $0,76</div>
+  <a class="go" href="games/grok.html">▶ Играть</a>
+ </div>
+</div>
+
+<div class="fail">
+ <div class="x"><img src="img/googlegemini-c.svg" alt="">Gemini 3.1 Pro — 1</div>
+ <div class="x"><img src="img/deepseek-c.svg" alt="">DeepSeek V4 Pro — 1</div>
+ <p>Тренажёры не заработали: у Gemini после «Играть» — чёрный экран, у DeepSeek нельзя управлять мышкой.</p>
+</div>
+
+<p class="note">Играть лучше на компьютере с мышкой. Клик по «Играть» в игре захватывает курсор, Esc — отпустить.<br>
+Код каждой игры написала нейросеть — я его не правил. Битву смотри на YouTube: <a href="https://www.youtube.com/@kriminnazar">@kriminnazar</a> · Telegram-канал: <a href="https://t.me/kriminnazar_ai">t.me/kriminnazar_ai</a></p>
+</div></body></html>
